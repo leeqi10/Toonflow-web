@@ -23,6 +23,8 @@ export interface VideoConfig {
   resolution: string;
   duration: number;
   prompt: string;
+  dialogue?: string;
+  narration?: string;
   selectedResultId: number | null; // 选中的生成结果ID
   createdAt: string;
   audioEnabled: boolean;
@@ -176,6 +178,8 @@ export default defineStore(
               resolution: item.resolution,
               duration: item.duration,
               prompt: item.prompt || "",
+              dialogue: item.dialogue || "",
+              narration: item.narration || "",
               selectedResultId: item.selectedResultId,
               createdAt: item.createdAt || new Date().toISOString(),
               audioEnabled: item.audioEnabled,
@@ -209,6 +213,8 @@ export default defineStore(
         resolution: configData.resolution,
         duration: configData.duration,
         prompt: configData.prompt || "",
+        dialogue: configData.dialogue || "",
+        narration: configData.narration || "",
         selectedResultId: configData.selectedResultId || null,
         createdAt: configData.createdAt || new Date().toISOString(),
         audioEnabled: configData.audioEnabled,
@@ -231,6 +237,8 @@ export default defineStore(
         startFrame: configData.startFrame || null,
         endFrame: configData.endFrame || null,
         images: configData.images || [],
+        dialogue: configData.dialogue || "",
+        narration: configData.narration || "",
         id: ++configIdCounter,
         selectedResultId: null,
         createdAt: new Date().toISOString(),
@@ -334,7 +342,12 @@ export default defineStore(
     // 更新配置（包括图片字段）
     function updateConfigFull(
       configId: number,
-      updates: Partial<Pick<VideoConfig, "prompt" | "resolution" | "duration" | "startFrame" | "endFrame" | "images" | "mode" | "audioEnabled">>,
+      updates: Partial<
+        Pick<
+          VideoConfig,
+          "prompt" | "resolution" | "duration" | "startFrame" | "endFrame" | "images" | "mode" | "audioEnabled" | "dialogue" | "narration"
+        >
+      >,
     ) {
       const config = videoConfigs.value.find((c) => c.id === configId);
       if (config) {
@@ -346,6 +359,8 @@ export default defineStore(
         if (updates.images !== undefined) config.images = [...updates.images];
         if (updates.mode !== undefined) config.mode = updates.mode;
         if (updates.audioEnabled !== undefined) config.audioEnabled = updates.audioEnabled;
+        if (updates.dialogue !== undefined) config.dialogue = updates.dialogue;
+        if (updates.narration !== undefined) config.narration = updates.narration;
       }
     }
 

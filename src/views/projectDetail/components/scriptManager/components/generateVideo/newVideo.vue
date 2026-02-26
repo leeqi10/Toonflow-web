@@ -251,17 +251,32 @@
     <a-modal
       v-model:open="importStoryboardVisible"
       title="从分镜一键导入视频配置"
-      width="80%"
+      width="60%"
+      :maskClosable="false"
+      :bodyStyle="{ maxHeight: '70vh', overflow: 'auto' }"
       @ok="confirmImportStoryboards"
       @cancel="importStoryboardVisible = false">
       <a-spin :spinning="importStoryboardLoading">
         <div v-if="storyboardImportList.length" class="storyboardImportBody">
-          <p class="importTip">
-            请选择需要导入的视频分镜（可多选），每个分镜将生成一条对应的视频配置。
-          </p>
+          <div class="importTipRow">
+            <p class="importTip">
+              请选择需要导入的视频分镜（可多选），每个分镜将生成一条对应的视频配置。
+            </p>
+            <a-checkbox
+              :checked="allStoryboardsSelected"
+              :indeterminate="storyboardsIndeterminate"
+              @change="onToggleSelectAllStoryboards($event.target.checked)">
+              全选
+            </a-checkbox>
+          </div>
           <div class="storyboardGrid">
-            <div v-for="(item, index) in storyboardImportList" :key="item.id" class="storyboardItem">
+            <div
+              v-for="(item, index) in storyboardImportList"
+              :key="item.id"
+              class="storyboardItem"
+              @click="onToggleStoryboardByClick(item.id)">
               <a-checkbox
+                @click.stop
                 :checked="storyboardSelectedIds.includes(item.id)"
                 @change="onToggleStoryboard(item.id, $event.target.checked)">
                 第 {{ index + 1 }} 镜：{{ item.name || "未命名" }}
@@ -380,6 +395,14 @@ const importStoryboardVisible = ref(false);
 const importStoryboardLoading = ref(false);
 const storyboardImportList = ref<StoryboardImportItem[]>([]);
 const storyboardSelectedIds = ref<number[]>([]);
+const allStoryboardsSelected = computed(
+  () => storyboardImportList.value.length > 0 && storyboardSelectedIds.value.length === storyboardImportList.value.length
+);
+const storyboardsIndeterminate = computed(
+  () =>
+    storyboardSelectedIds.value.length > 0 &&
+    storyboardSelectedIds.value.length < storyboardImportList.value.length
+);
 onMounted(async () => {
   const res = await axios.post("/video/getManufacturer", {
     userId: Number(localStorage.getItem("userId")),
@@ -395,19 +418,21 @@ watch(storyboardShow, (v) => {
 });
 
 function getDefaultManufacturerAndModel() {
-  const defaultManufacturer: string = availableManufacturers.value[0]?.manufacturer || "volcengine";
-  const defaultModel: string = availableManufacturers.value[0]
-    ? manufacturerList.value.find((i) => i.id === availableManufacturers.value[0].value)?.model || ""
+  const first = availableManufacturers.value[0];
+  const defaultManufacturer: string = first?.manufacturer || "volcengine";
+  const defaultModel: string = first
+    ? manufacturerList.value.find((i) => i.id === first.value)?.model || ""
     : "";
-  return { defaultManufacturer, defaultModel };
+  const defaultConfigId: number | undefined = first?.value as number | undefined;
+  return { defaultManufacturer, defaultModel, defaultConfigId };
 }
 
 function createBaseVideoConfig(): VideoConfig {
-  const { defaultManufacturer, defaultModel } = getDefaultManufacturerAndModel();
+  const { defaultManufacturer, defaultModel, defaultConfigId } = getDefaultManufacturerAndModel();
   return {
     id: ++configIdCounter,
-    configId: undefined,
-    manufacturer: "",
+    configId: defaultConfigId,
+    manufacturer: defaultManufacturer,
     model: defaultModel,
     mode: getDefaultMode(defaultManufacturer, defaultModel) as VideoConfig["mode"],
     startFrame: null,
@@ -432,17 +457,17 @@ function removeVideoConfig(index: number) {
 }
 function onManufacturerChange(config: VideoConfig) {
   const selectedItem = manufacturerList.value.find((i) => i.id == config.configId);
-  config.manufacturer = selectedItem?.manufacturer!;
+  config.manufacturer = selectedItem?.manufacturer || "";
   config.model = selectedItem?.model || "";
   const manufacturerConfig = getManufacturerConfig(config.manufacturer, config.model);
-  // 重置模式
-  config.mode = manufacturerConfig.defaultMode as VideoConfig["mode"];
+  const modeOptions = getModeOptions(config.manufacturer, config.model);
+  const supportModes = modeOptions.map((m) => m.value);
+  // 仅当当前模式不受新模型支持时，才重置模式，避免清空下方已选图片
+  if (!supportModes.includes(config.mode)) {
+    config.mode = manufacturerConfig.defaultMode as VideoConfig["mode"];
+  }
   config.resolution = manufacturerConfig.defaultResolution;
   config.duration = getDefaultDuration(config.manufacturer, config.model);
-  // 清空图片选择
-  config.startFrame = null;
-  config.endFrame = null;
-  config.images = [];
 }
 function onModeChange(config: VideoConfig) {
   config.startFrame = null;
@@ -626,6 +651,19 @@ function onToggleStoryboard(id: number, checked: boolean) {
   }
 }
 
+function onToggleStoryboardByClick(id: number) {
+  const checked = !storyboardSelectedIds.value.includes(id);
+  onToggleStoryboard(id, checked);
+}
+
+function onToggleSelectAllStoryboards(checked: boolean) {
+  if (checked) {
+    storyboardSelectedIds.value = storyboardImportList.value.map((item) => item.id);
+  } else {
+    storyboardSelectedIds.value = [];
+  }
+}
+
 function confirmImportStoryboards() {
   if (!storyboardSelectedIds.value.length) {
     message.warning("请选择至少一条分镜");
@@ -633,26 +671,53 @@ function confirmImportStoryboards() {
   }
   const { defaultManufacturer, defaultModel } = getDefaultManufacturerAndModel();
   const modeOptions = getModeOptions(defaultManufacturer, defaultModel);
+  const supportStartEnd = modeOptions.some((m) => m.value === "startEnd");
   const supportSingle = modeOptions.some((m) => m.value === "single");
-  const targetMode: VideoConfig["mode"] = supportSingle ? "single" : "multi";
+  const targetMode: VideoConfig["mode"] = supportStartEnd ? "startEnd" : supportSingle ? "single" : "multi";
+
+  // 建立分镜在当前剧本中的顺序索引，用于首尾帧自动映射
+  const idToIndex = new Map<number, number>();
+  storyboardImportList.value.forEach((item, idx) => {
+    idToIndex.set(item.id, idx);
+  });
 
   const selected = storyboardImportList.value.filter((item) => storyboardSelectedIds.value.includes(item.id));
   selected.forEach((item) => {
     const base = createBaseVideoConfig();
     base.mode = targetMode;
     base.duration = item.duration || getDefaultDuration(defaultManufacturer, defaultModel);
+    base.audioEnabled = true;
     base.prompt = item.videoPrompt || "";
     base.dialogue = item.dialogue ?? "";
     base.narration = item.narration ?? "";
-    const image: ImageItem = {
+    const startImage: ImageItem = {
       id: item.id,
       filePath: item.filePath,
       prompt: item.prompt || "",
     };
-    if (targetMode === "single") {
-      base.startFrame = image;
+
+    if (targetMode === "startEnd") {
+      base.startFrame = startImage;
+      const currentIndex = idToIndex.get(item.id);
+      if (currentIndex !== undefined) {
+        let nextImage: ImageItem | null = null;
+        for (let i = currentIndex + 1; i < storyboardImportList.value.length; i++) {
+          const next = storyboardImportList.value[i];
+          if (next && next.filePath) {
+            nextImage = {
+              id: next.id,
+              filePath: next.filePath,
+              prompt: next.prompt || "",
+            };
+            break;
+          }
+        }
+        base.endFrame = nextImage;
+      }
+    } else if (targetMode === "single") {
+      base.startFrame = startImage;
     } else {
-      base.images = [image];
+      base.images = [startImage];
     }
     videoConfigs.value.push(base);
   });
@@ -1015,8 +1080,15 @@ function handleCancel() {
 }
 
 .storyboardImportBody {
-  .importTip {
+  .importTipRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 12px;
+    gap: 12px;
+  }
+  .importTip {
+    margin-bottom: 0;
     color: #666;
     font-size: 13px;
   }
