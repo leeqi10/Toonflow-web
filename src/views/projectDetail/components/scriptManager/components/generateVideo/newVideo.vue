@@ -290,10 +290,10 @@
               <div class="storyboardMeta">
                 <span class="duration">{{ item.duration || 0 }}s</span>
               </div>
-              <div class="storyboardPrompt">视频提示词：{{ item.videoPrompt || "暂无" }}</div>
+              <div class="storyboardPrompt" :title="item.videoPrompt || '暂无'">视频提示词：{{ item.videoPrompt || "暂无" }}</div>
               <div class="storyboardExtra" v-if="item.dialogue || item.narration">
-                <div v-if="item.dialogue" class="storyboardLine">人物对话：{{ item.dialogue }}</div>
-                <div v-if="item.narration" class="storyboardLine">第三方叙述：{{ item.narration }}</div>
+                <div v-if="item.dialogue" class="storyboardLine" :title="item.dialogue">人物对话：{{ item.dialogue }}</div>
+                <div v-if="item.narration" class="storyboardLine" :title="item.narration">第三方叙述：{{ item.narration }}</div>
               </div>
             </div>
           </div>
@@ -1114,8 +1114,12 @@ function handleCancel() {
       margin-top: 4px;
       font-size: 12px;
       color: #666;
-      max-height: 48px;
       overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      text-overflow: ellipsis;
+      word-break: break-all;
     }
     .storyboardExtra {
       margin-top: 6px;
@@ -1123,10 +1127,10 @@ function handleCancel() {
       color: #888;
       .storyboardLine {
         margin-top: 2px;
-        max-height: 36px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        min-width: 0;
       }
     }
   }
