@@ -462,9 +462,12 @@ function onManufacturerChange(config: VideoConfig) {
   const manufacturerConfig = getManufacturerConfig(config.manufacturer, config.model);
   const modeOptions = getModeOptions(config.manufacturer, config.model);
   const supportModes = modeOptions.map((m) => m.value);
-  // 仅当当前模式不受新模型支持时，才重置模式，避免清空下方已选图片
+  // 当新厂商/模型不支持当前模式时重置模式，并清空已选图片，避免残留无效数据
   if (!supportModes.includes(config.mode)) {
     config.mode = manufacturerConfig.defaultMode as VideoConfig["mode"];
+    config.startFrame = null;
+    config.endFrame = null;
+    config.images = [];
   }
   config.resolution = manufacturerConfig.defaultResolution;
   config.duration = getDefaultDuration(config.manufacturer, config.model);

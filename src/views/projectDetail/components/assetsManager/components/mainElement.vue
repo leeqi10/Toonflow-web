@@ -274,6 +274,7 @@ const handleBatchSave = async (list: ElementData[]) => {
       videoPrompt: item.videoPrompt,
       dialogue: item.dialogue ?? "",
       narration: item.narration ?? "",
+      voiceId: item.voiceId ?? undefined,
     });
     await axios.post("/assets/saveAssets", {
       id: item.id,
