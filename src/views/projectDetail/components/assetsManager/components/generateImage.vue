@@ -58,7 +58,7 @@
                     <div class="uploadIconWrapper">
                       <i-upload-picture theme="outline" size="32" fill="#9913FA" />
                     </div>
-                    <span class="uploadText">点击上传</span>
+                    <span class="uploadText">点击上传 或 Ctrl+V 粘贴</span>
                   </div>
                 </div>
               </div>
@@ -165,7 +165,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onBeforeUnmount } from "vue";
 import { storeToRefs } from "pinia";
 import { Empty, message, Modal } from "ant-design-vue";
 import { useFileDialog } from "@vueuse/core";
@@ -235,10 +235,16 @@ watch(modalShow, (visible) => {
     // 重置加载状态,确保每次打开弹窗时状态独立
     promptLoading.value = false;
     generateLoading.value = false;
+    document.addEventListener("paste", handlePaste);
   }
   if (!visible) {
+    document.removeEventListener("paste", handlePaste);
     timer && clearTimeout(timer);
   }
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener("paste", handlePaste);
 });
 function handleSelect(item: ImageState, index: number) {
   if (item.state == "生成中") {
@@ -278,6 +284,45 @@ async function fetchImages(id: number) {
         isFirstLoad.value = false;
       }
     }
+  }
+}
+
+// 从剪贴板或 FileList 应用一张图片到表单
+function applyImageFile(file: File) {
+  if (!formData.value) return;
+  const isImage = file.type.startsWith("image/");
+  if (!isImage) {
+    message.warn("请粘贴图片文件（PNG、JPG 等）");
+    return;
+  }
+  if (mode.value === 1) {
+    formData.value.uploadImage = URL.createObjectURL(file);
+  } else {
+    fileToBase64(file).then((base64) => {
+      if (formData.value) formData.value.sampleImage = base64;
+    });
+  }
+  message.success("已粘贴图片");
+}
+
+// 粘贴图片（Ctrl+V / Cmd+V）
+function handlePaste(e: ClipboardEvent) {
+  if (!formData.value || !modalShow.value) return;
+  const clipboardData = e.clipboardData;
+  if (!clipboardData) return;
+  const items = clipboardData.items;
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type.startsWith("image/")) {
+      e.preventDefault();
+      const file = items[i].getAsFile();
+      if (file) applyImageFile(file);
+      return;
+    }
+  }
+  const files = clipboardData.files;
+  if (files?.length && files[0].type.startsWith("image/")) {
+    e.preventDefault();
+    applyImageFile(files[0]);
   }
 }
 

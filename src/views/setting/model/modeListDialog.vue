@@ -144,7 +144,8 @@ const websites = ref<Record<string, string>>({
   anthropic: "",
   runninghub: "https://www.runninghub.cn/enterprise-api/consumerApi",
   gemini: "https://ai.google.dev/gemini-api/docs/api-key?hl=zh-cn",
-  grsai:"https://grsai.ai/zh/dashboard/api-keys"
+  grsai: "https://grsai.ai/zh/dashboard/api-keys",
+  tencent: "https://console.tencentcloud.com/cam/capi",
 });
 
 const currentWebsite = computed(() => {
@@ -167,6 +168,7 @@ const manufacturerNames: Record<string, string> = {
   modelScope: "魔塔",
   xai: "XAI",
   grsai: "Grsai",
+  tencent: "腾讯混元",
   other: "其他",
 };
 
@@ -187,6 +189,7 @@ function getManufacturerColor(manufacturer: string): string {
     modelScope: "#634BFE",
     xai: "red",
     grsai: "#2B7FFF",
+    tencent: "blue",
     other: "default",
   };
   return colors[manufacturer] || "default";
@@ -261,6 +264,11 @@ const manufacturerDefaultBaseUrls: Record<string, Record<string, string>> = {
     text: "https://grsai.dakka.com.cn/v1",
     image: "https://grsai.dakka.com.cn/v1/draw/nano-banana|https://grsai.dakka.com.cn/v1/draw/result",
     video: "https://grsai.dakka.com.cn/v1/video/{model}|https://grsai.dakka.com.cn/v1/draw/result",
+  },
+  tencent: {
+    text: "",
+    image: "ap-guangzhou",
+    video: "",
   },
   other: {
     text: "",
@@ -648,17 +656,12 @@ function sure() {
 }
 function getData() {
   axios
-    .post("/setting/getAiModelList", {
-      type: activeTab.value,
-    })
+    .post("/setting/getAiModelList", { type: activeTab.value })
     .then((res) => {
-      if (activeTab.value === "text") {
-        textModelPresets.value = res.data;
-      } else if (activeTab.value === "image") {
-        imageModelPresets.value = res.data;
-      } else if (activeTab.value === "video") {
-        videoModelPresets.value = res.data;
-      }
+      const data = res.data ?? {};
+      if (activeTab.value === "text") textModelPresets.value = data;
+      else if (activeTab.value === "image") imageModelPresets.value = data;
+      else if (activeTab.value === "video") videoModelPresets.value = data;
     });
 }
 </script>

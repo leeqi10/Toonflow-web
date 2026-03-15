@@ -87,7 +87,13 @@
               <template #default="{ row }">
                 <div class="api-key-cell">
                   <div class="api-key-text">
-                    {{ visibleMap[row.id] ? row.apiKey : "••••••••" }}
+                    {{
+                      !visibleMap[row.id]
+                        ? "••••••••"
+                        : row.manufacturer === "tencent"
+                          ? "SecretId/SecretKey 已配置"
+                          : row.apiKey
+                    }}
                   </div>
                   <a-button type="text" size="small" class="toggle-btn" @click="setVisible(row.id, !visibleMap[row.id])">
                     <i-preview-open v-if="!visibleMap[row.id]" theme="outline" size="18" fill="#8c8c8c" />
@@ -134,7 +140,7 @@
                   </a-tooltip>
                   <a-popconfirm
                     title="确定要删除此模型吗？"
-                    style="z-index: 99999999999999999999"
+                    :overlay-style="{ zIndex: 9999 }"
                     ok-text="确定"
                     cancel-text="取消"
                     @confirm="delModelBtn(row)">
@@ -352,6 +358,7 @@ const websites = ref<Record<string, string>>({
   anthropic: "",
   runninghub: "https://www.runninghub.cn/enterprise-api/consumerApi",
   gemini: "https://ai.google.dev/gemini-api/docs/api-key?hl=zh-cn",
+  tencent: "https://console.cloud.tencent.com/cam/capi",
 });
 
 const currentWebsite = computed(() => {
@@ -371,6 +378,7 @@ const manufacturerNames: Record<string, string> = {
   anthropic: "Anthropic",
   runninghub: "RunningHUB",
   gemini: "Gemini",
+  tencent: "腾讯混元",
   other: "其他",
 };
 
@@ -409,6 +417,11 @@ const manufacturerDefaultBaseUrls: Record<string, Record<string, string>> = {
   },
   gemini: {
     text: "https://generativelanguage.googleapis.com",
+  },
+  tencent: {
+    text: "",
+    image: "ap-guangzhou",
+    video: "",
   },
 };
 
