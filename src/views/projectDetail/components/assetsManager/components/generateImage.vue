@@ -68,12 +68,20 @@
                 <div class="promptSection">
                   <div class="sectionHeader">
                     <span class="namePre">提示词</span>
-                    <a-tooltip title="AI 智能生成提示词">
-                      <a-button type="link" size="small" class="magicBtn" @click.stop="generatePrompt" :loading="promptLoading">
-                        <template #icon><i-magic theme="outline" size="14" /></template>
-                        智能生成
-                      </a-button>
-                    </a-tooltip>
+                    <div class="promptActions">
+                      <a-tooltip title="AI 智能生成提示词">
+                        <a-button type="link" size="small" class="magicBtn" @click.stop="generatePrompt" :loading="promptLoading">
+                          <template #icon><i-magic theme="outline" size="14" /></template>
+                          智能生成
+                        </a-button>
+                      </a-tooltip>
+                      <a-tooltip title="复制实际用于模型的完整提示词（系统 + 用户）">
+                        <a-button type="link" size="small" class="magicBtn" @click.stop="copyFullPrompt">
+                          <template #icon><i-copy theme="outline" size="14" /></template>
+                          复制生成提示词
+                        </a-button>
+                      </a-tooltip>
+                    </div>
                   </div>
                   <a-spin :spinning="promptLoading" tip="提示词生成中...">
                     <a-textarea
@@ -218,6 +226,7 @@ const selectedIndex = ref(-1);
 const saveLoading = ref(false);
 const previewVisible = ref(false);
 const previewUrl = ref("");
+const copyingPrompt = ref(false);
 
 // 计算属性
 const currentImage = computed(() => (mode.value === 1 ? formData.value?.uploadImage : formData.value?.sampleImage));
@@ -256,7 +265,7 @@ function handleSelect(item: ImageState, index: number) {
 function setPreviewVisible(value: boolean) {
   previewVisible.value = value;
 }
-let timer: number = -1;
+let timer: ReturnType<typeof setTimeout> | undefined;
 // 获取图片列表
 const assetsId = ref();
 async function fetchImages(id: number) {
@@ -447,6 +456,37 @@ async function startGenerate() {
     message.error("资产生成失败");
   } finally {
     generateLoading.value = false;
+  }
+}
+
+// 复制实际调用模型时的完整提示词（系统 + 用户）
+async function copyFullPrompt() {
+  if (!formData.value) return;
+  if (!formData.value.prompt) {
+    message.warning("请先填写或生成提示词");
+    return;
+  }
+  copyingPrompt.value = true;
+  try {
+    const { id, name, prompt, type } = formData.value;
+    const { data } = await axios.post("/assets/getGeneratePrompt", {
+      id,
+      projectId: projectId.value,
+      type: TYPE_MAP[type ?? "道具"] ?? "props",
+      name,
+      prompt,
+    });
+    const fullPrompt = data.fullPrompt || "";
+    if (!fullPrompt) {
+      message.error("获取生成提示词失败");
+      return;
+    }
+    await navigator.clipboard.writeText(fullPrompt);
+    message.success("生成提示词已复制到剪贴板");
+  } catch (e: any) {
+    message.error(e?.message ?? "复制生成提示词失败");
+  } finally {
+    copyingPrompt.value = false;
   }
 }
 
